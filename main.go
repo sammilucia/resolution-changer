@@ -15,7 +15,7 @@ import (
 
 const (
 	appName    = "Resolution Changer"
-	appVersion = "v0.5"
+	appVersion = "v0.5.0"
 )
 
 //go:embed assets/icon_ico.ico

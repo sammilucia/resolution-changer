@@ -2,19 +2,25 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 ; Non-commercial use only
 
+#define MyAppName "Resolution Changer"
+#define MyAppVersion "0.5.0"
+#define MyAppPublisher "BanAaron, SammiLucia"
+#define MyAppURL "https://github.com/sammilucia/resolution-changer"
+#define MyAppExeName "resolution-changer.exe"
+
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
 AppId={{AD339484-4D5B-442C-911B-DB56AF4CD7B1}
-AppName=Resolution Changer
-AppVersion=0.3
-;AppVerName=Resolution Changer 0.3
-AppPublisher=BanAaron, SammiLucia
-AppPublisherURL=https://github.com/sammilucia/resolution-changer
-AppSupportURL=https://github.com/sammilucia/resolution-changer
-AppUpdatesURL=https://github.com/sammilucia/resolution-changer
-DefaultDirName={autopf}\Resolution Changer
-UninstallDisplayIcon={app}\resolution-changer.exe
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppVerName={#MyAppName} v{#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}
+AppUpdatesURL={#MyAppURL}
+DefaultDirName={autopf}\{#MyAppName}
+UninstallDisplayIcon={app}\{#MyAppExeName}
 ; "ArchitecturesAllowed=x64compatible" specifies that Setup cannot run
 ; on anything but x64 and Windows 11 on Arm.
 ArchitecturesAllowed=x64compatible
@@ -24,30 +30,26 @@ ArchitecturesAllowed=x64compatible
 ; the 64-bit view of the registry.
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
-LicenseFile=C:\Users\Penny Parsec\git\resolution-changer\LICENSE.txt
-InfoBeforeFile=
-InfoAfterFile=
-; Uncomment the following line to run in non administrative install mode (install for current user only).
-;PrivilegesRequired=lowest
-SetupIconFile=C:\Users\Penny Parsec\git\resolution-changer\assets\icon_ico.ico
+LicenseFile=..\LICENSE.txt
+SetupIconFile=..\assets\icon_ico.ico
 SolidCompression=yes
 WizardStyle=modern dynamic
-OutputBaseFilename=Install Resolution Changer v0.4
+OutputBaseFilename=Install {#MyAppName} v{#MyAppVersion}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "startup"; Description: "Start Resolution Changer with Windows"; GroupDescription: "Additional options:"; Flags: unchecked
+Name: "startup"; Description: "Start {#MyAppName} with Windows"; GroupDescription: "Additional options:"; Flags: unchecked
 
 [Files]
-Source: "C:\Users\Penny Parsec\git\resolution-changer\resolution-changer.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\Penny Parsec\git\resolution-changer\config.ini"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\config.ini"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
-Name: "{autoprograms}\Resolution Changer"; Filename: "{app}\resolution-changer.exe"
-Name: "{userstartup}\Resolution Changer"; Filename: "{app}\resolution-changer.exe"; Tasks: startup
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: startup
 
 [Run]
-Filename: "{app}\resolution-changer.exe"; Description: "{cm:LaunchProgram,Resolution Changer}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
