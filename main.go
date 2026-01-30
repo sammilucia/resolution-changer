@@ -3,15 +3,23 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
-	"github.com/banaaron/resolution-changer/displayManager"
-	"github.com/gen2brain/beeep"
-	"github.com/getlantern/systray"
 	"log/slog"
-	"os"
 	"sync"
 	"time"
+
+	"github.com/sammilucia/resolution-changer/displayManager"
+	"github.com/getlantern/systray"
 )
+
+const (
+	appName    = "Resolution Changer"
+	appVersion = "v0.4"
+)
+
+//go:embed assets/icon_ico.ico
+var trayIcon []byte
 
 type resMenu struct {
 	item *systray.MenuItem
@@ -57,31 +65,12 @@ func applyDisplayInfo(di displayManager.DisplayInfo) {
 	currentRate = di.Refresh
 }
 
-func panicError(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-func getIcon(fileLocation string) []byte {
-	slog.Info("getting icon")
-	iconBytes, err := os.ReadFile(fileLocation)
-	if err != nil {
-		slog.Error("failed to load icon", "error:", err)
-	}
-	return iconBytes
-}
-
 func onReady() {
 	slog.Info("onReady")
 
-	appName := "Resolution Changer"
-	iconLocation := "assets/icon_ico.ico"
-
-	icon := getIcon(iconLocation)
-	systray.SetIcon(icon)
+	systray.SetIcon(trayIcon) // use embedded icon bytes
 	systray.SetTitle(appName)
-	systray.SetTooltip(appName)
+	systray.SetTooltip(appName + " " + appVersion)
 
 	cfg, err := loadConfig("config.ini")
 	if err != nil {
@@ -137,16 +126,11 @@ func onReady() {
 		rm := rm
 		go func() {
 			for range rm.item.ClickedCh {
-				err := displayManager.ChangeResolution(rm.res)
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					if nErr := beeep.Notify("Error", errorString, iconLocation); nErr != nil {
-						panicError(nErr)
-					}
+				if err := displayManager.ChangeResolution(rm.res); err != nil {
+					slog.Error("failed to change resolution", "err", err)
 					continue
 				}
-
-				if di, e := displayManager.GetCurrentDisplay(); e == nil {
+				if di, err := displayManager.GetCurrentDisplay(); err == nil {
 					applyDisplayInfo(di)
 				}
 			}
@@ -158,16 +142,11 @@ func onReady() {
 		hm := hm
 		go func() {
 			for range hm.item.ClickedCh {
-				err := displayManager.ChangeRefreshRate(hm.rate)
-				if err != nil {
-					errorString := fmt.Sprintf("%v", err)
-					if nErr := beeep.Notify("Error", errorString, iconLocation); nErr != nil {
-						panicError(nErr)
-					}
+				if err := displayManager.ChangeRefreshRate(hm.rate); err != nil {
+					slog.Error("failed to change refresh rate", "err", err)
 					continue
 				}
-
-				if di, e := displayManager.GetCurrentDisplay(); e == nil {
+				if di, err := displayManager.GetCurrentDisplay(); err == nil {
 					applyDisplayInfo(di)
 				}
 			}

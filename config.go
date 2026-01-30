@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/banaaron/resolution-changer/displayManager"
+	"github.com/sammilucia/resolution-changer/displayManager"
 )
 
 type AppConfig struct {
