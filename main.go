@@ -21,6 +21,12 @@ const (
 //go:embed assets/icon_ico.ico
 var trayIcon []byte
 
+// hotkey ID ranges
+const (
+	hotkeyResBase  = 1000 // resolution hotkeys: 1000, 1001, ...
+	hotkeyRateBase = 2000 // refresh rate hotkeys: 2000, 2001, ...
+)
+
 type resMenu struct {
 	item *systray.MenuItem
 	res  displayManager.Resolution
@@ -65,6 +71,20 @@ func applyDisplayInfo(di displayManager.DisplayInfo) {
 	currentRate = di.Refresh
 }
 
+// gcd calculates the greatest common divisor using Euclidean algorithm
+func gcd(a, b uint32) uint32 {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return a
+}
+
+// aspectRatio returns the aspect ratio as a string like "16:10"
+func aspectRatio(w, h uint32) string {
+	d := gcd(w, h)
+	return fmt.Sprintf("%d:%d", w/d, h/d)
+}
+
 func onReady() {
 	slog.Info("onReady")
 
@@ -76,39 +96,73 @@ func onReady() {
 	if err != nil {
 		slog.Warn("using built-in defaults; failed to load config.ini", "err", err)
 		cfg = AppConfig{
-			Resolutions: []displayManager.Resolution{
-				{Width: 2560, Height: 1600},
-				{Width: 2560, Height: 1440},
+			Resolutions: []ResolutionConfig{
+				{Resolution: displayManager.Resolution{Width: 2560, Height: 1600}},
+				{Resolution: displayManager.Resolution{Width: 2560, Height: 1440}},
 			},
-			RefreshRates: []displayManager.RefreshRate{
-				240,
-				60,
+			RefreshRates: []RefreshRateConfig{
+				{Rate: 240},
+				{Rate: 60},
 			},
 		}
 	}
 
-	// build resolution menu
+	// build resolution menu and register hotkeys
 	resMenus = nil
-	for _, r := range cfg.Resolutions {
-		label := fmt.Sprintf("%dx%d", r.Width, r.Height)
+	for i, r := range cfg.Resolutions {
+		label := fmt.Sprintf("%dx%d", r.Resolution.Width, r.Resolution.Height)
+		if r.Hotkey != "" {
+			label += fmt.Sprintf("   (%s)", r.Hotkey)
+		}
 		item := systray.AddMenuItem(label, label)
 		resMenus = append(resMenus, resMenu{
 			item: item,
-			res:  r,
+			res:  r.Resolution,
 		})
+
+		// register hotkey if configured
+		if r.Hotkey != "" {
+			mods, key, err := ParseHotkey(r.Hotkey)
+			if err != nil {
+				slog.Warn("invalid hotkey", "resolution", label, "hotkey", r.Hotkey, "err", err)
+			} else if key != 0 {
+				if err := RegisterHotkey(hotkeyResBase+i, mods, key); err != nil {
+					slog.Warn("failed to register hotkey", "resolution", label, "hotkey", r.Hotkey, "err", err)
+				} else {
+					slog.Info("registered hotkey", "resolution", label, "hotkey", r.Hotkey)
+				}
+			}
+		}
 	}
 
 	systray.AddSeparator()
 
-	// build refresh rate menu
+	// build refresh rate menu and register hotkeys
 	rateMenus = nil
-	for _, hz := range cfg.RefreshRates {
-		label := fmt.Sprintf("%dhz", hz)
+	for i, hz := range cfg.RefreshRates {
+		label := fmt.Sprintf("%dhz", hz.Rate)
+		if hz.Hotkey != "" {
+			label += fmt.Sprintf("   (%s)", hz.Hotkey)
+		}
 		item := systray.AddMenuItem(label, label)
 		rateMenus = append(rateMenus, rateMenu{
 			item: item,
-			rate: hz,
+			rate: hz.Rate,
 		})
+
+		// register hotkey if configured
+		if hz.Hotkey != "" {
+			mods, key, err := ParseHotkey(hz.Hotkey)
+			if err != nil {
+				slog.Warn("invalid hotkey", "rate", label, "hotkey", hz.Hotkey, "err", err)
+			} else if key != 0 {
+				if err := RegisterHotkey(hotkeyRateBase+i, mods, key); err != nil {
+					slog.Warn("failed to register hotkey", "rate", label, "hotkey", hz.Hotkey, "err", err)
+				} else {
+					slog.Info("registered hotkey", "rate", label, "hotkey", hz.Hotkey)
+				}
+			}
+		}
 	}
 
 	systray.AddSeparator()
@@ -159,6 +213,29 @@ func onReady() {
 			systray.Quit()
 		}
 	}()
+
+	// hotkey listener
+	go HotkeyListener(func(id int) {
+		if id >= hotkeyResBase && id < hotkeyRateBase {
+			idx := id - hotkeyResBase
+			if idx < len(resMenus) {
+				if err := displayManager.ChangeResolution(resMenus[idx].res); err != nil {
+					slog.Error("hotkey: failed to change resolution", "err", err)
+				} else if di, err := displayManager.GetCurrentDisplay(); err == nil {
+					applyDisplayInfo(di)
+				}
+			}
+		} else if id >= hotkeyRateBase {
+			idx := id - hotkeyRateBase
+			if idx < len(rateMenus) {
+				if err := displayManager.ChangeRefreshRate(rateMenus[idx].rate); err != nil {
+					slog.Error("hotkey: failed to change refresh rate", "err", err)
+				} else if di, err := displayManager.GetCurrentDisplay(); err == nil {
+					applyDisplayInfo(di)
+				}
+			}
+		}
+	})
 
 	// "listener": poll for external changes every few seconds
 	go func() {

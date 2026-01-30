@@ -11,9 +11,19 @@ import (
 	"github.com/sammilucia/resolution-changer/displayManager"
 )
 
+type ResolutionConfig struct {
+	Resolution displayManager.Resolution
+	Hotkey     string
+}
+
+type RefreshRateConfig struct {
+	Rate   displayManager.RefreshRate
+	Hotkey string
+}
+
 type AppConfig struct {
-	Resolutions  []displayManager.Resolution
-	RefreshRates []displayManager.RefreshRate
+	Resolutions  []ResolutionConfig
+	RefreshRates []RefreshRateConfig
 }
 
 func loadConfig(path string) (AppConfig, error) {
@@ -34,6 +44,17 @@ func loadConfig(path string) (AppConfig, error) {
 			continue
 		}
 
+		// strip inline comments
+		if idx := strings.Index(line, ";"); idx != -1 {
+			line = strings.TrimSpace(line[:idx])
+		}
+		if idx := strings.Index(line, "#"); idx != -1 {
+			line = strings.TrimSpace(line[:idx])
+		}
+		if line == "" {
+			continue
+		}
+
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
 			currentSection = strings.TrimSpace(line[1 : len(line)-1])
 			continue
@@ -41,7 +62,9 @@ func loadConfig(path string) (AppConfig, error) {
 
 		switch currentSection {
 		case "Resolutions":
-			parts := strings.Split(line, "x")
+			// format: 2560x1600 = Ctrl+F1
+			value, hotkey := splitKeyValue(line)
+			parts := strings.Split(value, "x")
 			if len(parts) != 2 {
 				slog.Warn("invalid resolution line", "line", line)
 				continue
@@ -52,18 +75,26 @@ func loadConfig(path string) (AppConfig, error) {
 				slog.Warn("invalid resolution values", "line", line)
 				continue
 			}
-			cfg.Resolutions = append(cfg.Resolutions, displayManager.Resolution{
-				Width:  uint32(w),
-				Height: uint32(h),
+			cfg.Resolutions = append(cfg.Resolutions, ResolutionConfig{
+				Resolution: displayManager.Resolution{
+					Width:  uint32(w),
+					Height: uint32(h),
+				},
+				Hotkey: hotkey,
 			})
 
 		case "RefreshRates":
-			hz, err := strconv.Atoi(line)
+			// format: 240 = Alt+F1
+			value, hotkey := splitKeyValue(line)
+			hz, err := strconv.Atoi(strings.TrimSpace(value))
 			if err != nil {
 				slog.Warn("invalid refresh rate", "line", line)
 				continue
 			}
-			cfg.RefreshRates = append(cfg.RefreshRates, displayManager.RefreshRate(hz))
+			cfg.RefreshRates = append(cfg.RefreshRates, RefreshRateConfig{
+				Rate:   displayManager.RefreshRate(hz),
+				Hotkey: hotkey,
+			})
 		default:
 			// ignore other sections
 		}
@@ -74,4 +105,13 @@ func loadConfig(path string) (AppConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+// splitKeyValue splits "2560x1600 = Ctrl+F1" into ("2560x1600", "Ctrl+F1")
+// If no "=" is present, returns (line, "")
+func splitKeyValue(line string) (value, hotkey string) {
+	if idx := strings.Index(line, "="); idx != -1 {
+		return strings.TrimSpace(line[:idx]), strings.TrimSpace(line[idx+1:])
+	}
+	return line, ""
 }
